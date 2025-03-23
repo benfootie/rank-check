@@ -30,15 +30,17 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
         continue;
       }
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        console.error(`HTTP error: ${response.status} ${response.statusText}`);
+        return null; // Return null instead of throwing, so app doesn't crash
       }
       return response;
     } catch (error) {
-      if (i === retries - 1) {
-        throw error;
-      }
       const waitTime = delay * Math.pow(2, i);
       console.log(`Error fetching, retrying in ${waitTime}ms...`, error.message);
+      if (i === retries - 1) {
+        console.error('Fetch failed after retries:', error.message);
+        return null;
+      }
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
@@ -47,25 +49,32 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
 async function fetchTopCollections() {
   let collections = [];
   let continuation = null;
-  const limit = 100;
+  const limit = 20; // API max limit
   const target = 100;
 
   while (collections.length < target) {
-    let url = `https://api-apechain.reservoir.tools/collections/v7?sortBy=1DayVolume&limit=${limit}`;
+    let url = `https://api-apechain.reservoir.tools/collections/v7?sortBy=1dayVolume&limit=${limit}`;
     if (continuation) url += `&continuation=${continuation}`;
     
     const response = await fetchWithRetry(url, {
       headers: { 'x-api-key': process.env.RESERVOIR_API_KEY }
     });
     if (!response) {
-      console.error('Failed to fetch collections after retries');
+      console.error('Failed to fetch collections batch');
       break;
     }
     
     const data = await response.json();
+    if (!data.collections || data.collections.length === 0) {
+      console.error('No collections returned in this batch');
+      break;
+    }
     collections = collections.concat(data.collections);
     continuation = data.continuation;
     if (!continuation || collections.length >= target) break;
+
+    // Add a small delay between requests to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   return collections.slice(0, target);
