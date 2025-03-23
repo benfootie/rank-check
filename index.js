@@ -30,8 +30,9 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
         continue;
       }
       if (!response.ok) {
-        console.error(`HTTP error: ${response.status} ${response.statusText}`);
-        return null; // Return null instead of throwing, so app doesn't crash
+        const errorBody = await response.text();
+        console.error(`HTTP error: ${response.status} ${response.statusText} - ${errorBody}`);
+        return null; // Return null instead of crashing
       }
       return response;
     } catch (error) {
@@ -49,11 +50,11 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
 async function fetchTopCollections() {
   let collections = [];
   let continuation = null;
-  const limit = 20; // API max limit
+  const limit = 20;
   const target = 100;
 
   while (collections.length < target) {
-    let url = `https://api-apechain.reservoir.tools/collections/v7?sortBy=1dayVolume&limit=${limit}`;
+    let url = `https://api-apechain.reservoir.tools/collections/v7?sortBy=1DayVolume&limit=${limit}`;
     if (continuation) url += `&continuation=${continuation}`;
     
     const response = await fetchWithRetry(url, {
@@ -73,8 +74,7 @@ async function fetchTopCollections() {
     continuation = data.continuation;
     if (!continuation || collections.length >= target) break;
 
-    // Add a small delay between requests to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); // Small delay to avoid rate limits
   }
 
   return collections.slice(0, target);
