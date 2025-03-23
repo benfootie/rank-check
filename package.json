@@ -14,6 +14,7 @@
     "canvas": "^3.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "git-filter-repo": "^0.0.30",
     "node-fetch": "^2.6.7"
   }
 }
